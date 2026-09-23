@@ -159,6 +159,18 @@ menu "VGA ROM"
             deficiencies in the Windows vgabios emulator and the
             x86emu vgabios emulator (frequently used in Xorg).
 
+    config VGA_ATI_TABLES
+        depends on VGA_ATI
+        bool "Point the ROM header at ATI BIOS tables at POST"
+        default y
+        help
+            Fill the ROM header pointer at 0x48 with PLL and
+            connector tables for the Linux radeonfb and radeon KMS
+            drivers.  Turn it off when the machine adds its own ATI
+            tables to the ROM image: the POST would point the header
+            away from them in the shadow.  Without it the header keeps
+            256 zero bytes after 0x48 for those tables.
+
     config VGA_X86COMPAT
         depends on VGA_FIXUP_ASM && !VGA_GEODEGX2 && !VGA_GEODELX && !VGA_EMULATE_TEXT
         bool "Rewrite assembler for restricted x86 interpreters"

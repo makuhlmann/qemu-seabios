@@ -445,7 +445,8 @@ ati_setup(void)
     SET_VGA(VBE_total_memory, totalmem);
     SET_VGA(ati_io_addr, io_addr);
 
-    ati_table_setup();
+    if (CONFIG_VGA_ATI_TABLES)
+        ati_table_setup();
 
     // Validate modes
     struct generic_svga_mode *m = svga_modes;

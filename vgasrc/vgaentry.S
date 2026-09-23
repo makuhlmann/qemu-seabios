@@ -46,6 +46,10 @@ _rom_header_signature:
 _rom_header_ati_table_anchor:
         .word 0
         .balign 16
+#if !CONFIG_VGA_ATI_TABLES
+        // Room for the ATI tables that the machine adds to the image
+        .space 0x100
+#endif
 #endif
 
 /****************************************************************
