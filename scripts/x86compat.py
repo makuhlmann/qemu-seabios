@@ -4,8 +4,9 @@
 # This file may be distributed under the terms of the GNU GPLv3 license.
 #
 # The option ROM interpreter of the HP zx1 (Itanium 2) system firmware decodes
-# ModRM operands with 16-bit rules even behind an 0x67 prefix, and pushes only
-# two bytes for "pushl $imm8" (66 6A).  The Windows IA-64 HAL emulator (x86new)
+# ModRM operands with 16-bit rules even behind an 0x67 prefix, pushes only
+# two bytes for "pushl $imm8" (66 6A), and writes to the memory operand of
+# "bt $imm8" (0F BA /4).  The Windows IA-64 HAL emulator (x86new)
 # mis-decodes SIB operands without an index, which covers every ESP-based one.
 #
 #   x86compat.py rewrite IN.s OUT.s
@@ -24,6 +25,7 @@ re_mem = re.compile(r'(?P<seg>%[cdefgs]s:)?(?P<disp>[^,()\s]*)'
 re_string = re.compile(r'\s*(rep\w*\s+)?(movs|stos|lods|cmps|scas|ins|outs)'
                        r'[bwl]?(?!\w)')
 re_pushimm = re.compile(r'\s*pushl\s+\$(-?(?:0x[0-9a-fA-F]+|\d+))\s*$')
+re_btimm = re.compile(r'\s*bt([wl])\s+(\$[^,]+),\s*(\S*\(.*\))\s*$')
 
 
 def fail(line, why):
@@ -35,7 +37,7 @@ def fail(line, why):
 # faults, and the low 16 bits of a sum depend only on the low 16 bits of its
 # terms: a 16-bit form computes the same address.  Forms the 16-bit ModRM
 # encoding lacks go through %bx, which the C code never uses (-ffixed-ebx).
-def lower(line):
+def lower(line, helper_ok=False):
     code = line.partition('#')[0]
     if re_string.match(code):
         return [line]
@@ -44,7 +46,7 @@ def lower(line):
         return [line]
     if len(ms) > 1:
         fail(line, 'two memory operands')
-    if re.search(r'%e?bx\b|%b[lh]\b', code):
+    if not helper_ok and re.search(r'%e?bx\b|%b[lh]\b', code):
         fail(line, 'instruction uses bx')
     m = ms[0]
     seg, disp, base, idx, sc = m.group('seg', 'disp', 'base', 'idx', 'sc')
@@ -87,10 +89,22 @@ def rewrite(infile, outfile):
         if not s or s[0] in '.#' or s.endswith(':'):
             out.append(line)
             continue
-        m = re_pushimm.match(line.partition('#')[0])
+        code = line.partition('#')[0]
+        m = re_pushimm.match(code)
         if m and -128 <= int(m.group(1), 0) <= 127:
             out.append('\t.byte 0x66, 0x68\n\t.long %s\n' % m.group(1))
             continue
+        m = re_btimm.match(code)
+        if m:
+            # Test the bit in the scratch register: same CF, no store.
+            sfx, bit, mem = m.groups()
+            reg = '%ebx' if sfx == 'l' else '%bx'
+            out.extend(lower('\tmov%s\t%s, %s\n' % (sfx, mem, reg),
+                             helper_ok=True))
+            out.append('\tbt%s\t%s, %s\n' % (sfx, bit, reg))
+            continue
+        if re.match(r'\s*bt[swrc]?[wl]?\s.*\(', code):
+            fail(line, 'bit test on memory')
         out.extend(lower(line))
     open(outfile, 'w').writelines(out)
 
@@ -102,13 +116,15 @@ re_spbased = re.compile(r'\(%e?sp[,)]')
 
 # Violations of what the rewrite guarantees stop the build; the rest are
 # environment problems that are known and not yet removed.
-ERRORS = ('32-bit address', '66 6A push', 'SP-based operand', '0F 1F nop')
+ERRORS = ('32-bit address', '66 6A push', 'SP-based operand', '0F 1F nop',
+          'bt imm8 on memory')
 
 
 def lint(objdump, objs):
     found = {}
     for obj in objs:
-        text = subprocess.run([objdump, '-d', '-M', 'i8086', obj],
+        text = subprocess.run([objdump, '-d', '--insn-width=16', '-M', 'i8086',
+                               obj],
                               capture_output=True, text=True,
                               check=True).stdout
         func = '?'
@@ -128,6 +144,8 @@ def lint(objdump, objs):
                 kind = '66 6A push'
             elif re_spbased.search(insn):
                 kind = 'SP-based operand'
+            elif re.match(r'bt[wl]?\s+\$[^,]+,.*\(', insn):
+                kind = 'bt imm8 on memory'
             elif '0f 1f' in ' '.join(byts[:4]):
                 kind = '0F 1F nop'
             elif insn.startswith(('int ', 'hlt', 'jecxz')):
