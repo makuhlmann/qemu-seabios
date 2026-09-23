@@ -339,6 +339,15 @@ TEMPLATES = [
                                      0x02, 0x00]),
     ('call *%si + ret', 'call_reg'),
     ('push cs, push ip, lret', 'lret'),
+    # 16-bit effective addresses wrap at 64 KiB (x86compat.py relies on it).
+    ('wrap: store -0x10(%bp), bp=8', 'wrap_bp_w'),
+    ('wrap: store (%bx,%si), sum 0x10010', 'wrap_bxsi_w'),
+    ('wrap: store 0x12(%bx), bx=0xfffe', 'wrap_bx_w'),
+    ('wrap: load 0x120(%si), si=0xff00', 'wrap_si_r'),
+    ('wrap: load (%bp,%si), sum 0x10020', 'wrap_bpsi_r'),
+    ('wrap: leaw 0x20(%si), si=0xfff0', 'wrap_lea_si'),
+    ('wrap: leaw 0x10(%bp,%si), sum 0x10020', 'wrap_lea_bpsi'),
+    ('wrap: leaw 0x20(%bx), bx=0xfff0', 'wrap_lea_bx'),
 ]
 
 
@@ -381,6 +390,18 @@ def emit(tests):
 
 
 TEMPLATE_ASM = {
+    'wrap_lea_si': '\tmovw $0xfff0, %%si\n\tleaw 0x20(%%si), %%bx',
+    'wrap_lea_bpsi': '\tmovw $0xfff0, %%bp\n\tmovw $0x0020, %%si\n'
+                     '\tleaw 0x10(%%bp,%%si), %%bx',
+    'wrap_lea_bx': '\tmovw $0xfff0, %%bx\n\tleaw 0x20(%%bx), %%bx',
+    'wrap_bp_w': '\tmovb $0, %%ss:0xfff8\n\tmovw $0x0008, %%bp\n'
+                 '\tmovb $0x5a, -0x10(%%bp)\n\tmovb %%ss:0xfff8, %%al',
+    'wrap_bxsi_w': '\tmovw $0xfff0, %%bx\n\tmovw $0x0020, %%si\n'
+                   '\tmovb $0x5a, (%%bx,%%si)',
+    'wrap_bx_w': '\tmovw $0xfffe, %%bx\n\tmovb $0x5a, 0x12(%%bx)',
+    'wrap_si_r': '\tmovw $0xff00, %%si\n\t.byte 0x8a, 0x84, 0x20, 0x01',
+    'wrap_bpsi_r': '\tmovw $0xfff0, %%bp\n\tmovw $0x0030, %%si\n'
+                   '\tmovb (%%bp,%%si), %%al',
     'call_reg': '\tmovw $t_%(id)04x_f, %%si\n\tcall *%%si\n\tjmp t_%(id)04x_d\n'
                 't_%(id)04x_f:\n\tmovw $3, %%ax\n\tret\nt_%(id)04x_d:',
     'lret': '\tpushw %%cs\n\tpushw $t_%(id)04x_d\n\tlretw\n\tmovw $1, %%ax\n'
