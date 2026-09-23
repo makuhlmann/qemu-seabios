@@ -48,6 +48,17 @@ void ati_list_modes(u16 seg, u16 *dest, u16 *last);
 int ati_set_mode(struct vgamode_s *vmode_g, int flags);
 int ati_setup(void);
 
+// nvext.c
+struct vgamode_s *nv_find_mode(int mode);
+void nv_list_modes(u16 seg, u16 *dest, u16 *last);
+int nv_get_linelength(struct vgamode_s *curmode_g);
+int nv_set_linelength(struct vgamode_s *curmode_g, int val);
+int nv_get_displaystart(struct vgamode_s *curmode_g);
+int nv_set_displaystart(struct vgamode_s *curmode_g, int val);
+int nv_save_restore(int cmd, u16 seg, void *data);
+int nv_set_mode(struct vgamode_s *vmode_g, int flags);
+int nv_setup(void);
+
 // stdvgamodes.c
 struct vgamode_s *stdvga_find_mode(int mode);
 void stdvga_list_modes(u16 seg, u16 *dest, u16 *last);

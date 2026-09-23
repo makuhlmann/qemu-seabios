@@ -36,6 +36,14 @@ menu "VGA ROM"
                 and emulators.  This is for emulators; it is not
                 intended for use on real ATI hardware.
 
+        config VGA_NVIDIA
+            depends on QEMU
+            bool "QEMU IA-64 NVIDIA GeForce2 (NV15)"
+            select VGA_STDVGA_PORTS
+            help
+                Build support for the nv15gl-vga device of
+                qemu-system-ia64 (NVIDIA Quadro2 Pro, 10de:0153).
+
         config VGA_BOCHS
             depends on QEMU
             bool "QEMU/Bochs VBE SVGA"
@@ -192,6 +200,7 @@ menu "VGA ROM"
         prompt "PCI Vendor ID" if OVERRIDE_PCI_ID
         default 0x1013 if VGA_CIRRUS
         default 0x1002 if VGA_ATI
+        default 0x10de if VGA_NVIDIA
         default 0x1234 if VGA_BOCHS_STDVGA
         default 0x15ad if VGA_BOCHS_VMWARE
         default 0x1b36 if VGA_BOCHS_QXL
@@ -209,6 +218,7 @@ menu "VGA ROM"
         prompt "PCI Vendor ID" if OVERRIDE_PCI_ID
         default 0x00b8 if VGA_CIRRUS
         default 0x5159 if VGA_ATI
+        default 0x0153 if VGA_NVIDIA
         default 0x1111 if VGA_BOCHS_STDVGA
         default 0x0405 if VGA_BOCHS_VMWARE
         default 0x0100 if VGA_BOCHS_QXL
