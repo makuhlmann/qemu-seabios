@@ -19,7 +19,8 @@ import sys
 R16 = {'%eax': '%ax', '%ecx': '%cx', '%edx': '%dx', '%ebx': '%bx',
        '%esp': '%sp', '%ebp': '%bp', '%esi': '%si', '%edi': '%di'}
 
-re_mem = re.compile(r'(?P<seg>%[cdefgs]s:)?(?P<disp>[^,()\s]*)'
+# SeaBIOS writes segment overrides in upper case in inline asm (%CS:).
+re_mem = re.compile(r'(?P<seg>%[cdefgsCDEFGS][sS]:)?(?P<disp>[^,()\s%]*)'
                     r'\((?P<base>%e\w\w)?(?:,(?P<idx>%e\w\w)(?:,(?P<sc>\d))?)?\)')
 # The address size of a string instruction also selects its count register.
 re_string = re.compile(r'\s*(rep\w*\s+)?(movs|stos|lods|cmps|scas|ins|outs)'
@@ -35,8 +36,11 @@ def fail(line, why):
 
 # In real mode every effective address is below 64 KiB, or a real CPU
 # faults, and the low 16 bits of a sum depend only on the low 16 bits of its
-# terms: a 16-bit form computes the same address.  Forms the 16-bit ModRM
-# encoding lacks go through %bx, which the C code never uses (-ffixed-ebx).
+# terms, so a 16-bit form computes the same address - provided the sum wraps
+# at 64 KiB.  The zx1 interpreter does not wrap it.  So every address except
+# a frame-pointer offset (%ebp is always a valid stack address) is computed
+# into %bx, which the C code never uses (-ffixed-ebx), by 16-bit arithmetic
+# and "leaw", whose 16-bit register write wraps; the access is then (%bx).
 def lower(line, helper_ok=False):
     code = line.partition('#')[0]
     if re_string.match(code):
@@ -56,29 +60,32 @@ def lower(line, helper_ok=False):
         base, idx = idx, None
     if base == '%esp' and code.split()[0].startswith('pop'):
         fail(line, 'pop to an esp-based address')
+    if base == '%ebp' and idx is None:
+        new = code[:m.start()] + (seg or '') + disp + '(%bp)' + code[m.end():]
+        return [new.rstrip() + '\n']
     b = R16[base]
     i = R16[idx] if idx else None
     pre = []
     if i is None:
-        if b in ('%bp', '%si', '%di'):
-            form = '(%s)' % b
+        if b in ('%si', '%di'):
+            ea = '(%s)' % b
         else:
-            pre, form = ['movw %s, %%bx' % b], '(%bx)'
+            pre, ea = ['movw %s, %%bx' % b], '(%bx)'
     elif {b, i} in ({'%bp', '%si'}, {'%bp', '%di'}):
-        form = '(%%bp,%s)' % ({'%si', '%di'} & {b, i}).pop()
+        ea = '(%%bp,%s)' % ({'%si', '%di'} & {b, i}).pop()
     elif i in ('%si', '%di'):
-        pre, form = ['movw %s, %%bx' % b], '(%%bx,%s)' % i
+        pre, ea = ['movw %s, %%bx' % b], '(%%bx,%s)' % i
     elif b in ('%si', '%di'):
-        pre, form = ['movw %s, %%bx' % i], '(%%bx,%s)' % b
+        pre, ea = ['movw %s, %%bx' % i], '(%%bx,%s)' % b
     else:
         pre = ['movw %s, %%bx' % b, 'pushfw', 'addw %s, %%bx' % i, 'popfw']
-        form = '(%bx)'
-    # 32-bit forms default to SS only for an EBP or ESP base, 16-bit forms
-    # for any use of BP.
-    ss32 = base in ('%ebp', '%esp')
-    if not seg and ss32 != ('%bp' in form):
-        seg = '%ss:' if ss32 else '%ds:'
-    new = code[:m.start()] + (seg or '') + disp + form + code[m.end():]
+        ea = '(%bx)'
+    if disp or ea != '(%bx)':
+        pre.append('leaw %s%s, %%bx' % (disp, ea))
+    # 32-bit forms default to SS for an EBP or ESP base; (%bx) to DS.
+    if not seg and base in ('%ebp', '%esp'):
+        seg = '%ss:'
+    new = code[:m.start()] + (seg or '') + '(%bx)' + code[m.end():]
     return ['\t%s\n' % p for p in pre] + [new.rstrip() + '\n']
 
 
@@ -116,8 +123,10 @@ re_spbased = re.compile(r'\(%e?sp[,)]')
 
 # Violations of what the rewrite guarantees stop the build; the rest are
 # environment problems that are known and not yet removed.
+# x86new, the Windows IA-64 emulator, pushes 16 bits for a segment register
+# whatever the operand size, and keys jecxz on 0x66 instead of 0x67.
 ERRORS = ('32-bit address', '66 6A push', 'SP-based operand', '0F 1F nop',
-          'bt imm8 on memory')
+          'bt imm8 on memory', '66 push/pop of a segment register', 'jecxz')
 
 
 def lint(objdump, objs):
@@ -146,9 +155,14 @@ def lint(objdump, objs):
                 kind = 'SP-based operand'
             elif re.match(r'bt[wl]?\s+\$[^,]+,.*\(', insn):
                 kind = 'bt imm8 on memory'
+            elif byts[0] == '66' and byts[1] in ('06', '07', '0e', '16',
+                                                  '17', '1e', '1f'):
+                kind = '66 push/pop of a segment register'
+            elif insn.startswith('jecxz'):
+                kind = 'jecxz'
             elif '0f 1f' in ' '.join(byts[:4]):
                 kind = '0F 1F nop'
-            elif insn.startswith(('int ', 'hlt', 'jecxz')):
+            elif insn.startswith(('int ', 'hlt')):
                 kind = insn.split(' ')[0] + (' ' + insn.split()[1]
                                               if insn.startswith('int ') else '')
             if kind:
