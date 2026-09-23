@@ -70,11 +70,12 @@ _rom_header_ati_table_anchor:
         PUSHBREGS
         movw %ss, %ax           // Move %ss to %ds
         movw %ax, %ds
-        movl %esp, %ebx         // Backup %esp, then zero high bits
+        // %esi, not %ebx: VGA_X86COMPAT takes %bx for its rewrites
+        movl %esp, %esi         // Backup %esp, then zero high bits
         movzwl %sp, %esp
         movl %esp, %eax         // First arg is pointer to struct bregs
         VGA_CALLL \cfunc
-        movl %ebx, %esp         // Restore %esp (including high bits)
+        movl %esi, %esp         // Restore %esp (including high bits)
         POPBREGS
         .endm
 
@@ -93,6 +94,7 @@ entry_10:
         ENTRY_ARG_VGA handle_10
         iretw
 
+#if CONFIG_VGA_ALLOCATE_EXTRA_STACK
 #define VGA_CUSTOM_BDA_FLAGS 0xb9
 #define BF_EXTRA_STACK 0x40
 
@@ -136,6 +138,7 @@ entry_10_extrastack:
         popl %eax
         popw %ds
         jmp entry_10
+#endif
 
         // Timer irq handling
         DECLFUNC entry_timer_hook
@@ -143,6 +146,7 @@ entry_timer_hook:
         ENTRY handle_timer_hook
         ljmpw *%cs:Timer_Hook_Resume
 
+#if CONFIG_VGA_ALLOCATE_EXTRA_STACK
         // Timer irq handling on extra stack
         DECLFUNC entry_timer_hook_extrastack
 entry_timer_hook_extrastack:
@@ -166,3 +170,4 @@ entry_timer_hook_extrastack:
         movl PUSHBREGS_size(%eax), %esp
         RESTOREBREGS_DSEAX
         ljmpw *%cs:Timer_Hook_Resume
+#endif

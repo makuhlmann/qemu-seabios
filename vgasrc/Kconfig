@@ -159,8 +159,24 @@ menu "VGA ROM"
             deficiencies in the Windows vgabios emulator and the
             x86emu vgabios emulator (frequently used in Xorg).
 
+    config VGA_X86COMPAT
+        depends on VGA_FIXUP_ASM && !VGA_GEODEGX2 && !VGA_GEODELX && !VGA_EMULATE_TEXT
+        bool "Rewrite assembler for restricted x86 interpreters"
+        default n
+        help
+            Rewrite the compiler output so that the VGA BIOS avoids
+            instruction forms that some x86 interpreters decode
+            wrongly: memory operands with 32-bit address registers are
+            lowered to 16-bit addressing, and "pushl" of a small
+            constant uses the 32-bit immediate encoding.  The option
+            ROM interpreter of the HP zx1 (Itanium 2) firmware needs
+            this.  The C code is compiled with -ffixed-ebx, so the
+            Geode backends (which use %ebx in inline asm) and text
+            emulation (whose timer entry keeps %esp in %ebx) cannot be
+            selected.
+
     config VGA_ALLOCATE_EXTRA_STACK
-        depends on BUILD_VGABIOS
+        depends on BUILD_VGABIOS && !VGA_X86COMPAT
         bool "Allocate an internal stack for 16bit interrupt entry point"
         default y
         help

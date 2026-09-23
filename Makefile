@@ -221,12 +221,21 @@ SRCVGA=src/output.c src/string.c src/hw/pci.c src/hw/serialio.c \
     src/fw/coreboot.c vgasrc/cbvga.c vgasrc/bochsdisplay.c vgasrc/ramfb.c
 
 ifeq "$(CONFIG_VGA_FIXUP_ASM)" "y"
-$(OUT)vgaccode16.raw.s: $(OUT)autoconf.h $(patsubst %.c, $(OUT)%.o,$(SRCVGA)) ; $(call whole-compile, $(filter-out -fomit-frame-pointer,$(CFLAGS16)) -fno-omit-frame-pointer -S -Isrc, $(SRCVGA),$@)
+ifeq "$(CONFIG_VGA_X86COMPAT)" "y"
+VGAX86COMPATFLAGS=-ffixed-ebx
+endif
+$(OUT)vgaccode16.raw.s: $(OUT)autoconf.h $(patsubst %.c, $(OUT)%.o,$(SRCVGA)) ; $(call whole-compile, $(filter-out -fomit-frame-pointer,$(CFLAGS16)) -fno-omit-frame-pointer $(VGAX86COMPATFLAGS) -S -Isrc, $(SRCVGA),$@)
 
-$(OUT)vgaccode16.o: $(OUT)vgaccode16.raw.s scripts/vgafixup.py
+$(OUT)vgaccode16.o: $(OUT)vgaccode16.raw.s scripts/vgafixup.py scripts/x86compat.py
 	@echo "  Fixup VGA rom assembler"
 	$(Q)$(PYTHON) ./scripts/vgafixup.py $< $(OUT)vgaccode16.s
+ifeq "$(CONFIG_VGA_X86COMPAT)" "y"
+	@echo "  Rewriting VGA rom assembler for restricted x86 interpreters"
+	$(Q)$(PYTHON) ./scripts/x86compat.py rewrite $(OUT)vgaccode16.s $(OUT)vgaccode16.x86compat.s
+	$(Q)$(AS) --32 src/code16gcc.s $(OUT)vgaccode16.x86compat.s -o $@
+else
 	$(Q)$(AS) --32 src/code16gcc.s $(OUT)vgaccode16.s -o $@
+endif
 else
 $(OUT)vgaccode16.o: $(OUT)autoconf.h $(patsubst %.c, $(OUT)%.o,$(SRCVGA)) ; $(call whole-compile, $(CFLAGS16) -Isrc, $(SRCVGA),$@)
 endif
@@ -237,6 +246,9 @@ $(OUT)vgaentry.o: vgasrc/vgaentry.S $(OUT)autoconf.h $(OUT)asm-offsets.h
 
 $(OUT)vgarom.o: $(OUT)vgaccode16.o $(OUT)vgaentry.o $(OUT)vgasrc/vgalayout.lds vgasrc/vgaversion.c scripts/buildversion.py
 	@echo "  Linking $@"
+ifeq "$(CONFIG_VGA_X86COMPAT)" "y"
+	$(Q)$(PYTHON) ./scripts/x86compat.py lint "$(OBJDUMP)" $(OUT)vgaccode16.o $(OUT)vgaentry.o
+endif
 	$(Q)$(PYTHON) ./scripts/buildversion.py -e "$(EXTRAVERSION)" -t "$(CC);$(AS);$(LD);$(OBJCOPY);$(OBJDUMP);$(STRIP)" $(OUT)autovgaversion.h
 	$(Q)$(CC) $(CFLAGS16) -c vgasrc/vgaversion.c -o $(OUT)vgaversion.o
 	$(Q)$(LD) --gc-sections -T $(OUT)vgasrc/vgalayout.lds $(OUT)vgaccode16.o $(OUT)vgaentry.o $(OUT)vgaversion.o -o $@
