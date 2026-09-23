@@ -497,6 +497,7 @@ nv_setup(void)
     }
     SET_VGA(nv_found, 1);
 
-    dprintf(1, "nv: edid %s\n", nv_read_edid() ? "good" : "invalid");
+    int edid_ok = nv_read_edid();
+    dprintf(1, "nv: edid %s\n", edid_ok ? "good" : "invalid");
     return 0;
 }
