@@ -16,6 +16,8 @@ static inline struct vgamode_s *vgahw_find_mode(int mode) {
         return ati_find_mode(mode);
     if (CONFIG_VGA_NVIDIA)
         return nv_find_mode(mode);
+    if (CONFIG_VGA_MACH64)
+        return mach_find_mode(mode);
     if (CONFIG_VGA_BOCHS)
         return bochsvga_find_mode(mode);
     if (CONFIG_VGA_EMULATE_TEXT)
@@ -30,6 +32,8 @@ static inline int vgahw_set_mode(struct vgamode_s *vmode_g, int flags) {
         return ati_set_mode(vmode_g, flags);
     if (CONFIG_VGA_NVIDIA)
         return nv_set_mode(vmode_g, flags);
+    if (CONFIG_VGA_MACH64)
+        return mach_set_mode(vmode_g, flags);
     if (CONFIG_VGA_BOCHS)
         return bochsvga_set_mode(vmode_g, flags);
     if (CONFIG_VGA_EMULATE_TEXT)
@@ -44,6 +48,8 @@ static inline void vgahw_list_modes(u16 seg, u16 *dest, u16 *last) {
         ati_list_modes(seg, dest, last);
     else if (CONFIG_VGA_NVIDIA)
         nv_list_modes(seg, dest, last);
+    else if (CONFIG_VGA_MACH64)
+        mach_list_modes(seg, dest, last);
     else if (CONFIG_VGA_BOCHS)
         bochsvga_list_modes(seg, dest, last);
     else if (CONFIG_VGA_EMULATE_TEXT)
@@ -59,6 +65,8 @@ static inline int vgahw_setup(void) {
         return ati_setup();
     if (CONFIG_VGA_NVIDIA)
         return nv_setup();
+    if (CONFIG_VGA_MACH64)
+        return mach_setup();
     if (CONFIG_VGA_BOCHS)
         return bochsvga_setup();
     if (CONFIG_VGA_GEODEGX2 || CONFIG_VGA_GEODELX)
@@ -98,6 +106,8 @@ static inline int vgahw_get_linelength(struct vgamode_s *curmode_g) {
         return clext_get_linelength(curmode_g);
     if (CONFIG_VGA_NVIDIA)
         return nv_get_linelength(curmode_g);
+    if (CONFIG_VGA_MACH64)
+        return mach_get_linelength(curmode_g);
     if (CONFIG_VGA_BOCHS)
         return bochsvga_get_linelength(curmode_g);
     if (CONFIG_VGA_EMULATE_TEXT)
@@ -116,6 +126,8 @@ static inline int vgahw_set_linelength(struct vgamode_s *curmode_g, int val) {
         return clext_set_linelength(curmode_g, val);
     if (CONFIG_VGA_NVIDIA)
         return nv_set_linelength(curmode_g, val);
+    if (CONFIG_VGA_MACH64)
+        return mach_set_linelength(curmode_g, val);
     if (CONFIG_VGA_BOCHS)
         return bochsvga_set_linelength(curmode_g, val);
     if (CONFIG_VGA_EMULATE_TEXT)
@@ -128,6 +140,8 @@ static inline int vgahw_get_displaystart(struct vgamode_s *curmode_g) {
         return clext_get_displaystart(curmode_g);
     if (CONFIG_VGA_NVIDIA)
         return nv_get_displaystart(curmode_g);
+    if (CONFIG_VGA_MACH64)
+        return mach_get_displaystart(curmode_g);
     if (CONFIG_VGA_BOCHS)
         return bochsvga_get_displaystart(curmode_g);
     if (CONFIG_VGA_EMULATE_TEXT)
@@ -140,6 +154,8 @@ static inline int vgahw_set_displaystart(struct vgamode_s *curmode_g, int val) {
         return clext_set_displaystart(curmode_g, val);
     if (CONFIG_VGA_NVIDIA)
         return nv_set_displaystart(curmode_g, val);
+    if (CONFIG_VGA_MACH64)
+        return mach_set_displaystart(curmode_g, val);
     if (CONFIG_VGA_BOCHS)
         return bochsvga_set_displaystart(curmode_g, val);
     if (CONFIG_VGA_EMULATE_TEXT)
@@ -148,6 +164,8 @@ static inline int vgahw_set_displaystart(struct vgamode_s *curmode_g, int val) {
 }
 
 static inline int vgahw_get_dacformat(struct vgamode_s *curmode_g) {
+    if (CONFIG_VGA_MACH64)
+        return mach_get_dacformat(curmode_g);
     if (CONFIG_VGA_BOCHS)
         return bochsvga_get_dacformat(curmode_g);
     if (CONFIG_VGA_EMULATE_TEXT)
@@ -156,6 +174,8 @@ static inline int vgahw_get_dacformat(struct vgamode_s *curmode_g) {
 }
 
 static inline int vgahw_set_dacformat(struct vgamode_s *curmode_g, int val) {
+    if (CONFIG_VGA_MACH64)
+        return mach_set_dacformat(curmode_g, val);
     if (CONFIG_VGA_BOCHS)
         return bochsvga_set_dacformat(curmode_g, val);
     if (CONFIG_VGA_EMULATE_TEXT)
@@ -168,6 +188,8 @@ static inline int vgahw_save_restore(int cmd, u16 seg, void *data) {
         return clext_save_restore(cmd, seg, data);
     if (CONFIG_VGA_NVIDIA)
         return nv_save_restore(cmd, seg, data);
+    if (CONFIG_VGA_MACH64)
+        return mach_save_restore(cmd, seg, data);
     if (CONFIG_VGA_BOCHS)
         return bochsvga_save_restore(cmd, seg, data);
     if (CONFIG_VGA_EMULATE_TEXT)

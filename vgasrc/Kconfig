@@ -44,6 +44,16 @@ menu "VGA ROM"
                 Build support for the nv15gl-vga device of
                 qemu-system-ia64 (NVIDIA Quadro2 Pro, 10de:0153).
 
+        config VGA_MACH64
+            depends on QEMU
+            bool "QEMU IA-64 ATI mach64 (RAGE XL)"
+            select VGA_STDVGA_PORTS
+            help
+                Build support for the mach64-vga device of
+                qemu-system-ia64 (ATI RAGE XL, 1002:4752), with the
+                ATI BIOS tables and the AH=A0h functions its native
+                drivers use.
+
         config VGA_BOCHS
             depends on QEMU
             bool "QEMU/Bochs VBE SVGA"
@@ -229,6 +239,7 @@ menu "VGA ROM"
         default 0x1013 if VGA_CIRRUS
         default 0x1002 if VGA_ATI
         default 0x10de if VGA_NVIDIA
+        default 0x1002 if VGA_MACH64
         default 0x1234 if VGA_BOCHS_STDVGA
         default 0x15ad if VGA_BOCHS_VMWARE
         default 0x1b36 if VGA_BOCHS_QXL
@@ -247,6 +258,7 @@ menu "VGA ROM"
         default 0x00b8 if VGA_CIRRUS
         default 0x5159 if VGA_ATI
         default 0x0153 if VGA_NVIDIA
+        default 0x4752 if VGA_MACH64
         default 0x1111 if VGA_BOCHS_STDVGA
         default 0x0405 if VGA_BOCHS_VMWARE
         default 0x0100 if VGA_BOCHS_QXL

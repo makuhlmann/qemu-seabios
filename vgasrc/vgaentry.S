@@ -52,6 +52,108 @@ _rom_header_ati_table_anchor:
 #endif
 #endif
 
+#if CONFIG_VGA_MACH64
+// ATI BIOS tables of the mach64 native drivers: layouts from the RAGE PRO
+// Programmer's Guide (PRG-215R3) App. A.14 and A.35, Tables A-11, A-13 and
+// A-14.  The Windows miniports read them from the 0xC0000 shadow, ati2mpad
+// also from the BAR6 image.
+        .org 0x30
+        .ascii " 761295520"
+        .org 0x48
+        .word mach_rom_table
+        .word 0x1002, 0x4752    // RAGE XL straps: subsystem vendor and ID
+        .byte 0                 // chg_id
+        .org 0x78
+        .word mach_dit
+
+// Reference 29.50 MHz and divider 0x36 match the PLL seeds of the model
+// (hw/display/mach64.c mach64_vga_reset); MCLK is what those seeds give,
+// MCLK_FB_DIV 0x97 * 2 / 0x36 divided by 3 (PLL_GEN_CNTL MCLK_SRC_SEL).
+#define MACH_REF_FREQ   2950
+#define MACH_REF_DIV    0x36
+#define MACH_MCLK       5499
+#define MACH_PCLK_MIN   2000
+#define MACH_PCLK_MAX   23000
+
+        .org 0x80
+        .word mach_rom_table_end - mach_rom_table
+        .global mach_rom_table
+mach_rom_table:
+        .byte 0, 0xa0           // type, extended function code
+        .byte 1, 0              // revision
+        .word 0                 // no sparse I/O
+        .word 0, 0, 0, 0, 0
+        .word mach_clock_table
+        .word mach_signon
+        .word mach_signon
+        .global mach_rom_pciloc
+mach_rom_pciloc:
+        .word 0                 // bus << 8 | devfn, set at POST
+        .word 0
+        .global mach_rom_iobase
+mach_rom_iobase:
+        .word 0                 // block I/O base, set at POST
+        .word 0, 0, 0
+        .word 0, 0              // no coprocessor-only INT 10h
+        .word 0
+        .global mach_rom_mmbase
+mach_rom_mmbase:
+        .long 0                 // register block, set at POST
+        .long 0
+        .word 0xffff            // no TV-out
+        .word 0xffff, 0, 0xffff
+        .word 0xc000            // runtime segment
+        .word 0
+        .word 0x1002, 0x1002, 0x4752, 0x4752
+        .word mach_signon
+        .word 0                 // no multimedia table
+        .word mach_hwinfo
+mach_rom_table_end:
+
+        .word 0, 0, 0           // -6: no mode-limit table
+        .word mach_pclk_table
+        .global mach_clock_table
+mach_clock_table:
+        .byte 4                 // internal PLL
+        .byte 0
+        .word MACH_PCLK_MIN, MACH_PCLK_MAX
+        .byte 3, 0xff           // extended modes program clock entry 3
+        .word MACH_REF_FREQ, MACH_REF_DIV
+        .word 0
+        .word MACH_MCLK, MACH_MCLK, MACH_MCLK, MACH_MCLK
+        .byte 0, 0
+        .word 0, 0
+        .word 0xff
+
+// VGA clocks, then VESA DMT pixel clocks, in 10 kHz
+        .global mach_pclk_table
+mach_pclk_table:
+        .word 2518, 2832, 3150, 3600, 4000, 4490, 5000, 5664
+        .word 6500, 7500, 7875, 9450, 10800, 13500, 15750, 0
+
+mach_hwinfo:
+        .ascii "$ATI"
+        .byte 2, 10
+        .byte 15                // I2C type: no AMC, so no multimedia probe
+        .byte 0, 0, 0
+
+// Revision 3 keeps ati2mpad's SetupScriptInitEntry off its script pointers.
+mach_dit:
+        .ascii "$XLT"
+        .byte 3, mach_dit_end - mach_dit
+        .word 0, 0              // no internal CRT table
+        .word 0                 // no panel
+        .word 0                 // no TV standard table
+        .word MACH_REF_DIV, MACH_PCLK_MIN, MACH_PCLK_MAX, MACH_REF_FREQ
+        .word mach_hwinfo
+        .word 0, 0
+        .space 12
+mach_dit_end:
+
+mach_signon:
+        .asciz "SeaVGABIOS MACH64 RAGE XL"
+#endif
+
 /****************************************************************
  * Entry points
  ****************************************************************/

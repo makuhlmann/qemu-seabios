@@ -59,6 +59,20 @@ int nv_save_restore(int cmd, u16 seg, void *data);
 int nv_set_mode(struct vgamode_s *vmode_g, int flags);
 int nv_setup(void);
 
+// machext.c
+struct vgamode_s *mach_find_mode(int mode);
+void mach_list_modes(u16 seg, u16 *dest, u16 *last);
+int mach_get_linelength(struct vgamode_s *curmode_g);
+int mach_set_linelength(struct vgamode_s *curmode_g, int val);
+int mach_get_displaystart(struct vgamode_s *curmode_g);
+int mach_set_displaystart(struct vgamode_s *curmode_g, int val);
+int mach_get_dacformat(struct vgamode_s *curmode_g);
+int mach_set_dacformat(struct vgamode_s *curmode_g, int val);
+int mach_save_restore(int cmd, u16 seg, void *data);
+int mach_set_mode(struct vgamode_s *vmode_g, int flags);
+int mach_setup(void);
+void mach_a0(struct bregs *regs);
+
 // stdvgamodes.c
 struct vgamode_s *stdvga_find_mode(int mode);
 void stdvga_list_modes(u16 seg, u16 *dest, u16 *last);

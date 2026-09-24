@@ -1128,6 +1128,12 @@ handle_10(struct bregs *regs)
     case 0x1b: handle_101b(regs); break;
     case 0x1c: handle_101c(regs); break;
     case 0x4f: handle_104f(regs); break;
+    case 0xa0:
+        if (CONFIG_VGA_MACH64) {
+            mach_a0(regs);
+            break;
+        }
+        // fall through
     default:   handle_10XX(regs); break;
     }
 }
