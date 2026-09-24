@@ -421,7 +421,7 @@ ati_setup(void)
         return 0;
 
     int bdf = GET_GLOBAL(VgaBDF);
-    if (!CONFIG_VGA_PCI || bdf == 0)
+    if (!CONFIG_VGA_PCI || bdf < 0)
         return 0;
 
     u32 bar = pci_config_readl(bdf, PCI_BASE_ADDRESS_0);
@@ -468,7 +468,7 @@ ati_setup(void)
         }
     }
 
-    u16 device = pci_config_readw(bdf, PCI_DEVICE_ID);
+    u16 device = pci_config_readl(bdf, PCI_VENDOR_ID) >> 16;
     switch (device) {
     case 0x5046:
         ati_i2c_edid_rage128();

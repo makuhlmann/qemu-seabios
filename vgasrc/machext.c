@@ -852,7 +852,6 @@ mach_setup(void)
     if (GET_GLOBAL(HaveRunInit))
         return 0;
 
-    // vga_post's check reads words, which fail in the zx1 interpreter.
     int bdf = GET_GLOBAL(VgaBDF);
     if (bdf < 0)
         bdf = mach_pcibios_find();

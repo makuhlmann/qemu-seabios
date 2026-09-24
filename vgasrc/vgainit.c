@@ -7,7 +7,7 @@
 
 #include "biosvar.h" // SET_BDA
 #include "bregs.h" // struct bregs
-#include "hw/pci.h" // pci_config_readw
+#include "hw/pci.h" // pci_config_readl
 #include "hw/pci_regs.h" // PCI_VENDOR_ID
 #include "hw/serialio.h" // serial_debug_preinit
 #include "output.h" // dprintf
@@ -163,10 +163,11 @@ vga_post(struct bregs *regs)
 
     if (CONFIG_VGA_PCI && !GET_GLOBAL(HaveRunInit)) {
         u16 bdf = regs->ax;
-        if ((pci_config_readw(bdf, PCI_VENDOR_ID)
-             == GET_GLOBAL(rom_pci_data.vendor))
-            && (pci_config_readw(bdf, PCI_DEVICE_ID)
-                == GET_GLOBAL(rom_pci_data.device)))
+        // One dword read: the option ROM interpreter of the HP zx1
+        // firmware fails word reads of configuration space.
+        u32 id = pci_config_readl(bdf, PCI_VENDOR_ID);
+        if ((id & 0xffff) == GET_GLOBAL(rom_pci_data.vendor)
+            && (id >> 16) == GET_GLOBAL(rom_pci_data.device))
             SET_VGA(VgaBDF, bdf);
     }
 

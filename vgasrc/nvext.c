@@ -449,7 +449,7 @@ nv_setup(void)
     int bdf = GET_GLOBAL(VgaBDF);
     if (!CONFIG_VGA_PCI || bdf < 0)
         return 0;
-    if (pci_config_readw(bdf, PCI_VENDOR_ID) != PCI_VENDOR_ID_NVIDIA) {
+    if ((u16)pci_config_readl(bdf, PCI_VENDOR_ID) != PCI_VENDOR_ID_NVIDIA) {
         dprintf(1, "nv: bdf %02x:%02x.%x is not an NVIDIA device\n",
                 pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf));
         return 0;
