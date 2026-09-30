@@ -471,6 +471,7 @@ ati_setup(void)
     u16 device = pci_config_readl(bdf, PCI_VENDOR_ID) >> 16;
     switch (device) {
     case 0x5046:
+    case 0x5246:
         ati_i2c_edid_rage128();
         break;
     case 0x5159:
