@@ -887,6 +887,12 @@ mach_setup(void)
     SET_VGA(mach_rom_mmbase, mmio);
     mach_out(M64_SCRATCH_REG1, 0);      // ROM at C000:0 (PRG App. A.1)
     mach_leave_ext();
+    // CRTC_ENABLE resets to 0, which holds the CRTC in reset (RRG
+    // CRTC_GEN_CNTL); the ATI BIOS POST starts it in every mode, VGA text
+    // included, and drivers that take over from POST refuse an adapter
+    // without it (XFree86 4.3 atipreinit.c: "Adapter has not been
+    // initialised").
+    mach_mask(M64_CRTC_GEN_CNTL, 0, GEN_EN);
 
     struct generic_svga_mode *m = svga_modes;
     unsigned int mcount = GET_GLOBAL(svga_mcount);
