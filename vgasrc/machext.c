@@ -61,7 +61,6 @@
 #define GEN_PIX_WIDTH           0x00000700
 #define GEN_EXT_DISP_EN         0x01000000
 #define GEN_EN                  0x02000000
-#define SYNC_POL                0x00200000
 #define DAC_8BIT_EN             0x00000100
 #define CFG_MEM_VGA_AP_EN       0x00000004
 #define PLL_WR_EN               0x00000200
@@ -339,24 +338,26 @@ struct mach_crtc {
 
 #define CRTC_FLAG_DBLSCAN       0x0100
 #define CRTC_FLAG_INTERLACE     0x0200
-#define CRTC_FLAG_HPOL_NEG      0x4000
-#define CRTC_FLAG_VPOL_NEG      0x8000
+// Bit 5 of a sync width byte is the register's sync polarity bit, set for
+// active low: the byte is bits 23:16 of CRTC_H/V_SYNC_STRT_WID (RRG 0_01,
+// 0_03), and the miniports build their tables that way
+// (WSRV03/drivers/video/ms/ati/mini/cvtddc.c:369-376).  The polarity bits of
+// the flags word are for VGA mode only (PRG Table A-9).
+#define CRTC_SYNC_NEG           0x20
 
 // VESA DMT: width, height, pixel clock (10 kHz), horizontal front porch,
-// sync, back porch, vertical front porch, sync, back porch, flags.
+// sync, back porch, vertical front porch, sync, back porch, sync polarity.
 struct mach_dmt {
     u16 w, h, clock;
     u16 hfp, hs, hbp;
     u8 vfp, vs, vbp;
-    u16 flags;
+    u8 neg;
 };
 
 static struct mach_dmt mach_dmt_modes[] VAR16 = {
-    {  640,  480,  2518, 16,  96,  48, 10, 2, 33,
-       CRTC_FLAG_HPOL_NEG | CRTC_FLAG_VPOL_NEG },
+    {  640,  480,  2518, 16,  96,  48, 10, 2, 33, CRTC_SYNC_NEG },
     {  800,  600,  4000, 40, 128,  88,  1, 4, 23, 0 },
-    { 1024,  768,  6500, 24, 136, 160,  3, 6, 29,
-      CRTC_FLAG_HPOL_NEG | CRTC_FLAG_VPOL_NEG },
+    { 1024,  768,  6500, 24, 136, 160,  3, 6, 29, CRTC_SYNC_NEG },
     { 1152,  864, 10800, 64, 128, 256,  1, 3, 32, 0 },
     { 1280, 1024, 10800, 48, 112, 248,  1, 3, 38, 0 },
     { 1600, 1200, 16200, 64, 192, 304,  1, 3, 46, 0 },
@@ -369,7 +370,7 @@ mach_timing(struct mach_crtc *t, u16 w, u16 h)
 {
     u16 hfp = 16, hs = w / 8, hbp = w / 8, vfp = 3, vs = 4, vbp = h / 20;
     u32 clock = 0;
-    u16 flags = 0;
+    u8 neg = 0;
     int i;
 
     for (i = 0; i < ARRAY_SIZE(mach_dmt_modes); i++) {
@@ -383,7 +384,7 @@ mach_timing(struct mach_crtc *t, u16 w, u16 h)
         vs = GET_GLOBAL(d->vs);
         vbp = GET_GLOBAL(d->vbp);
         clock = GET_GLOBAL(d->clock);
-        flags = GET_GLOBAL(d->flags);
+        neg = GET_GLOBAL(d->neg);
         break;
     }
     hs = ALIGN(hs, 8);
@@ -393,15 +394,14 @@ mach_timing(struct mach_crtc *t, u16 w, u16 h)
         clock = (u32)htotal * vtotal * 60 / 10000;
 
     memset(t, 0, sizeof(*t));
-    t->flags = flags;
     t->h_total = htotal / 8 - 1;
     t->h_disp = w / 8 - 1;
     t->h_sync_strt = (w + hfp) / 8 - 1;
-    t->h_sync_wid = hs / 8;
+    t->h_sync_wid = hs / 8 | neg;
     t->v_total = vtotal - 1;
     t->v_disp = h - 1;
     t->v_sync_strt = h + vfp - 1;
-    t->v_sync_wid = vs;
+    t->v_sync_wid = vs | neg;
     t->clock_cntl = 0xff;
     t->dot_clock = clock;
 }
@@ -464,19 +464,17 @@ mach_fill(u32 offset, u16 pitch, u8 pixw, u16 width, u16 height)
 static void
 mach_load_crtc(struct mach_crtc *t, u8 pixw, u16 pitch)
 {
-    u32 hpol = (t->flags & CRTC_FLAG_HPOL_NEG) ? SYNC_POL : 0;
-    u32 vpol = (t->flags & CRTC_FLAG_VPOL_NEG) ? SYNC_POL : 0;
     u32 gen = mach_in(M64_CRTC_GEN_CNTL) & ~(GEN_PIX_WIDTH | GEN_DBL_SCAN_EN
                                          | GEN_INTERLACE_EN);
 
     mach_out(M64_CRTC_GEN_CNTL, gen | GEN_DISPLAY_DIS);
     mach_out(M64_CRTC_H_TOTAL_DISP, t->h_total | (u32)t->h_disp << 16);
     mach_out(M64_CRTC_H_SYNC_STRT_WID, t->h_sync_strt
-             | (u32)(t->h_sync_wid & 0x1f) << 16 | hpol);
+             | (u32)(t->h_sync_wid & 0x3f) << 16);
     mach_out(M64_CRTC_V_TOTAL_DISP, (t->v_total & 0x7ff)
              | (u32)(t->v_disp & 0x7ff) << 16);
     mach_out(M64_CRTC_V_SYNC_STRT_WID, (t->v_sync_strt & 0x7ff)
-             | (u32)(t->v_sync_wid & 0x1f) << 16 | vpol);
+             | (u32)(t->v_sync_wid & 0x3f) << 16);
     mach_out(M64_CRTC_OFF_PITCH, (u32)(pitch / 8) << 22);
     if (t->clock_cntl == 0xff)
         mach_set_clock(t->dot_clock);
