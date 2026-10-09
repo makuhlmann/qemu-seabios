@@ -108,6 +108,8 @@ static inline int vgahw_get_linelength(struct vgamode_s *curmode_g) {
         return nv_get_linelength(curmode_g);
     if (CONFIG_VGA_MACH64)
         return mach_get_linelength(curmode_g);
+    if (CONFIG_VGA_ATI)
+        return ati_get_linelength(curmode_g);
     if (CONFIG_VGA_BOCHS)
         return bochsvga_get_linelength(curmode_g);
     if (CONFIG_VGA_EMULATE_TEXT)
@@ -128,6 +130,8 @@ static inline int vgahw_set_linelength(struct vgamode_s *curmode_g, int val) {
         return nv_set_linelength(curmode_g, val);
     if (CONFIG_VGA_MACH64)
         return mach_set_linelength(curmode_g, val);
+    if (CONFIG_VGA_ATI)
+        return ati_set_linelength(curmode_g, val);
     if (CONFIG_VGA_BOCHS)
         return bochsvga_set_linelength(curmode_g, val);
     if (CONFIG_VGA_EMULATE_TEXT)
@@ -142,6 +146,8 @@ static inline int vgahw_get_displaystart(struct vgamode_s *curmode_g) {
         return nv_get_displaystart(curmode_g);
     if (CONFIG_VGA_MACH64)
         return mach_get_displaystart(curmode_g);
+    if (CONFIG_VGA_ATI)
+        return ati_get_displaystart(curmode_g);
     if (CONFIG_VGA_BOCHS)
         return bochsvga_get_displaystart(curmode_g);
     if (CONFIG_VGA_EMULATE_TEXT)
@@ -156,6 +162,8 @@ static inline int vgahw_set_displaystart(struct vgamode_s *curmode_g, int val) {
         return nv_set_displaystart(curmode_g, val);
     if (CONFIG_VGA_MACH64)
         return mach_set_displaystart(curmode_g, val);
+    if (CONFIG_VGA_ATI)
+        return ati_set_displaystart(curmode_g, val);
     if (CONFIG_VGA_BOCHS)
         return bochsvga_set_displaystart(curmode_g, val);
     if (CONFIG_VGA_EMULATE_TEXT)

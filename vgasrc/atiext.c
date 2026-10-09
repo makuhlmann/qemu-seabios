@@ -42,6 +42,9 @@
 #define CRTC_PIX_WIDTH_24BPP                    0x00000500
 #define CRTC_PIX_WIDTH_32BPP                    0x00000600
 
+#define CRTC_OFFSET_MASK                        0x01ffffff
+#define CRTC_PITCH_MASK                         0x000003ff
+
 /* CRTC_EXT_CNTL */
 #define CRT_CRTC_DISPLAY_DIS                    0x00000400
 #define CRT_CRTC_ON                             0x00008000
@@ -204,6 +207,70 @@ ati_set_mode(struct vgamode_s *vmode_g, int flags)
 
     ati_write(CRTC_GEN_CNTL, 0);
     return stdvga_set_mode(vmode_g, flags);
+}
+
+/****************************************************************
+ * Line length and display start
+ ****************************************************************/
+
+// An extended mode is scanned out by the accelerator CRTC, not through the
+// VGA CR13 and CR0C/CR0D that the stdvga functions use: CRTC_PITCH holds the
+// line pitch in units of 8 pixels at every depth, CRTC_OFFSET the display
+// start in bytes (RAGE 128 PRO RRG p. 3-74 and 3-70).
+static int
+ati_cur_bpp(void)
+{
+    switch (ati_read(CRTC_GEN_CNTL) & CRTC_PIX_WIDTH_MASK) {
+    case CRTC_PIX_WIDTH_4BPP:  return 4;
+    case CRTC_PIX_WIDTH_8BPP:  return 8;
+    case CRTC_PIX_WIDTH_24BPP: return 24;
+    case CRTC_PIX_WIDTH_32BPP: return 32;
+    default:                   return 16;
+    }
+}
+
+int
+ati_get_linelength(struct vgamode_s *curmode_g)
+{
+    if (!is_ati_mode(curmode_g))
+        return stdvga_get_linelength(curmode_g);
+    return (ati_read(CRTC_PITCH) & CRTC_PITCH_MASK) * ati_cur_bpp();
+}
+
+int
+ati_set_linelength(struct vgamode_s *curmode_g, int val)
+{
+    if (!is_ati_mode(curmode_g))
+        return stdvga_set_linelength(curmode_g, val);
+    u32 pitch = DIV_ROUND_UP(val, ati_cur_bpp());
+    if (pitch > CRTC_PITCH_MASK)
+        return -1;
+    ati_write(CRTC_PITCH, pitch);
+    return 0;
+}
+
+int
+ati_get_displaystart(struct vgamode_s *curmode_g)
+{
+    if (!is_ati_mode(curmode_g))
+        return stdvga_get_displaystart(curmode_g);
+    return ati_read(CRTC_OFFSET) & CRTC_OFFSET_MASK;
+}
+
+int
+ati_set_displaystart(struct vgamode_s *curmode_g, int val)
+{
+    if (!is_ati_mode(curmode_g))
+        return stdvga_set_displaystart(curmode_g, val);
+    if (val < 0 || val > CRTC_OFFSET_MASK)
+        return -1;
+    // The offset counts 64-bit words (RAGE 128 VR/GL RRG, CRTC_OFFSET); at
+    // 24 bpp a multiple of 24 bytes also keeps the start on a pixel.
+    val &= ~7;
+    if (ati_cur_bpp() == 24)
+        val -= val % 24;
+    ati_write(CRTC_OFFSET, val);
+    return 0;
 }
 
 /****************************************************************
